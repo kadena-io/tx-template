@@ -42,7 +42,7 @@ genArgsP :: Parser GenArgs
 genArgsP = GenArgs
   <$> strOption (long "template" <> short 't' <> metavar "YAML_FILE" <> help "Transaction template file")
   <*> optional (strOption (long "data" <> short 'd' <> metavar "YAML_FILE" <> help "Data file to get variables from"))
-  <*> strOption (long "file-pat" <> short 'f' <> metavar "PAT" <> help "Pattern to use for output filenames (ex: \"tx-{{chain}}.yaml\")")
+  <*> strOption (long "file-pat" <> short 'f' <> metavar "PATTERN" <> help "Pattern to use for output filenames (ex: \"tx-{{chain}}.yaml\")")
 
 commands :: Parser Command
 commands = hsubparser
