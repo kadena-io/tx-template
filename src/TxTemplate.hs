@@ -38,7 +38,6 @@ import           Text.Read
 import           PactAPI.CommandSpec
 ------------------------------------------------------------------------------
 
-
 data FillFailure
   = FillIncomplete
   | FillErrors [String]
