@@ -25,8 +25,13 @@ data GenArgs = GenArgs
   , _genArgs_outFilePat :: FilePath
   } deriving (Eq,Ord,Show)
 
+data HolesArgs = HolesArgs
+  { _holesArgs_templateFile :: FilePath
+  } deriving (Eq,Ord,Show)
+
 data Command
   = Gen GenArgs
+  | Holes HolesArgs
   | Sign
   deriving (Eq,Ord,Show)
 
@@ -44,10 +49,16 @@ genArgsP = GenArgs
   <*> optional (strOption (long "data" <> short 'd' <> metavar "YAML_FILE" <> help "Data file to get variables from"))
   <*> strOption (long "file-pat" <> short 'f' <> metavar "PATTERN" <> help "Pattern to use for output filenames (ex: \"tx-{{chain}}.yaml\")")
 
+holesArgsP :: Parser HolesArgs
+holesArgsP = HolesArgs
+  <$> strOption (long "template" <> short 't' <> metavar "YAML_FILE" <> help "Transaction template file")
+
 commands :: Parser Command
 commands = hsubparser
   (  command "gen" (info (Gen <$> genArgsP)
        (progDesc "Generate unsigned transactions from a template"))
+  <> command "holes" (info (Holes <$> holesArgsP)
+       (progDesc "Get the holes for a template"))
   <> command "sign" (info (pure Sign)
        (progDesc "Sign unsigned transactions (not implemented yet)"))
   )
@@ -57,6 +68,7 @@ main = do
   args <- execParser opts
   case _args_command args of
     Gen ga -> genCmd ga
+    Holes ha -> holesCmd ha
     Sign -> putStrLn "Not implemented yet"
 
 opts :: ParserInfo Args
@@ -79,3 +91,13 @@ genCmd ga = do
   case res of
     Left e -> error e
     Right pairs -> putStrLn $ "Wrote commands to: " <> show (map fst pairs)
+
+holesCmd :: HolesArgs -> IO ()
+holesCmd ha = do
+  tplFile <- T.readFile $ _holesArgs_templateFile ha
+  res <- runExceptT $ do
+    (_,vs) <- hoistEither $ parseAndGetVars tplFile
+    pure vs
+  case res of
+    Left e -> error e
+    Right holes -> mapM_ (\h -> T.putStrLn $ h <> ": null") holes
