@@ -39,6 +39,7 @@ library
     vector,
   hs-source-dirs:      src
   default-language:    Haskell2010
+  ghc-options: -Wall
 
 executable tx-template
   main-is:             Main.hs
@@ -53,8 +54,11 @@ executable tx-template
     containers,
     errors,
     mtl,
+    mustache,
     optparse-applicative,
     text,
-    tx-template
+    tx-template,
+    unordered-containers
   hs-source-dirs:      exe
   default-language:    Haskell2010
+  ghc-options: -Wall

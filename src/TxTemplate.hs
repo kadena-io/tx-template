@@ -3,39 +3,26 @@
 module TxTemplate where
 
 ------------------------------------------------------------------------------
-import           Chainweb.Api.ChainId
-import           Chainweb.Api.Common
 import           Control.Applicative
-import           Control.Lens hiding (element)
 import           Control.Monad
-import           Control.Monad.Fix
-import           Control.Monad.Trans
-import           Data.Aeson
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Parser as A
 import qualified Data.Attoparsec.ByteString as Atto
 import           Data.Bifunctor
-import           Data.Decimal                (Decimal)
-import qualified Data.Decimal                as D
 import           Data.Either
 import qualified Data.HashMap.Strict as HM
 import           Data.List
 import           Data.Map (Map)
 import qualified Data.Map as M
-import           Data.Maybe
 import           Data.Set (Set)
 import qualified Data.Set as S
 import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Text.Encoding
 import qualified Data.Vector as V
-import           Data.YAML.Aeson
 import qualified Text.Mustache.Types as MU
 import           Text.Mustache
 import           Text.Mustache.Types
-import           Text.Read
-------------------------------------------------------------------------------
-import           PactAPI.CommandSpec
 ------------------------------------------------------------------------------
 
 data FillFailure
@@ -97,8 +84,8 @@ fillValueVars tmpl varMap =
            then Left $ FillErrors es
            else do
              mint <- first FillErrors $ enforceEqualArrayLens vs
-             forM (transposeArrays mint vs) $ \newVs -> do
-               pure $ substitute tmpl (MU.Object $ HM.fromList newVs)
+             forM (transposeArrays mint $ map (second dropSingleArr) vs) $ \newVs -> do
+               pure $ substituteValue tmpl (MU.Object $ HM.fromList newVs)
   where
     (es,vs) = partitionEithers $ map parseValueValue (M.toList varMap)
 
@@ -112,9 +99,9 @@ transposeArrays (Just n) thepairs = transpose . map (\(k,vs) -> map (k,) vs) $ g
       _ -> (k, replicate n v) : go ps
 
 enforceEqualArrayLens :: [(Text, MU.Value)] -> Either [String] (Maybe Int)
-enforceEqualArrayLens = go [] Nothing False
+enforceEqualArrayLens = go [] Nothing False . filter isArrWithMultiple
   where
-    topErr = "All fields that are arrays must have the same length"
+    topErr = "All fields that are arrays must have the same length or be length 1"
     go lenStrs mFirstLen isMismatch [] =
       if isMismatch then Left (topErr : lenStrs) else Right mFirstLen
     go lenStrs mFirstLen isMismatch ((k,v):ps) =
@@ -125,6 +112,12 @@ enforceEqualArrayLens = go [] Nothing False
               newMismatch = isMismatch || maybe False (/= len) mFirstLen
           in go (msg : lenStrs) (mFirstLen <|> Just len) newMismatch ps
         _ -> go lenStrs mFirstLen isMismatch ps
+    isArrWithMultiple (_,MU.Array a) = V.length a > 1
+    isArrWithMultiple _ = False
+
+dropSingleArr :: MU.Value -> MU.Value
+dropSingleArr v@(MU.Array a) = if V.length a == 1 then a V.! 0 else v
+dropSingleArr v = v
 
 parseTextValue :: (Text, Text) -> Either String (Text, MU.Value)
 parseTextValue (k,vt) = do
@@ -145,9 +138,18 @@ parseValueValue :: (Text, A.Value) -> Either String (Text, MU.Value)
 parseValueValue (k,v) = do
     v2 <- case v of
       A.Number n -> pure $ A.String $ T.pack $ show n
-      A.String _ -> pure v
-      A.Array _ -> pure v
-      _ -> Left "Template values must be a Number, String, or Array of numbers or strings"
+      _ -> pure v
+      -- A.String _ -> pure v
+      -- A.Array _ -> pure v
+      -- _ -> Left "Template values must be a Number, String, or Array of numbers or strings"
+    pure (k,mFromJSON v2)
+
+parseValueValue2 :: (Text, A.Value) -> Either String (Text, MU.Value)
+parseValueValue2 (k,v) = do
+    v2 <- case v of
+      A.Array a ->
+        if V.length a == 1 then pure (a V.! 0) else pure v
+      _ -> pure v
     pure (k,mFromJSON v2)
 
 getMustacheVariables :: STree -> Set [Text]

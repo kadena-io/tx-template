@@ -1,15 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Main where
 
 ------------------------------------------------------------------------------
 import           Control.Error
 import           Control.Monad.Trans
-import qualified Data.Aeson as A
 import           Data.Bifunctor
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.Map as M
-import qualified Data.Set as S
 import qualified Data.Text as T
 import           Data.Text.Encoding
 import qualified Data.Text.IO as T
@@ -79,7 +78,7 @@ genCmd :: GenArgs -> IO ()
 genCmd ga = do
   tplFile <- T.readFile $ _genArgs_templateFile ga
   res <- runExceptT $ do
-    (tpl,vs) <- hoistEither $ parseAndGetVars tplFile
+    (tpl,_) <- hoistEither $ parseAndGetVars tplFile
     dataText <- lift $ maybe (pure "{}") T.readFile $ _genArgs_dataFile ga
     vars <- hoistEither $ first show $ Y.decode1 (LB.fromStrict $ encodeUtf8 dataText)
     cmds <- hoistEither $ first prettyFailure $ fillValueVars tpl vars
