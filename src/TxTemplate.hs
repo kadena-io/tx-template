@@ -84,7 +84,7 @@ fillValueVars tmpl varMap =
            then Left $ FillErrors es
            else do
              mint <- first FillErrors $ enforceEqualArrayLens vs
-             forM (transposeArrays mint $ map (second dropSingleArr) vs) $ \newVs -> do
+             forM (transposeArrays mint $ map (second (maybe id replicateSingleArr mint)) vs) $ \newVs -> do
                pure $ substituteValue tmpl (MU.Object $ HM.fromList newVs)
   where
     (es,vs) = partitionEithers $ map parseValueValue (M.toList varMap)
@@ -115,9 +115,9 @@ enforceEqualArrayLens = go [] Nothing False . filter isArrWithMultiple
     isArrWithMultiple (_,MU.Array a) = V.length a > 1
     isArrWithMultiple _ = False
 
-dropSingleArr :: MU.Value -> MU.Value
-dropSingleArr v@(MU.Array a) = if V.length a == 1 then a V.! 0 else v
-dropSingleArr v = v
+replicateSingleArr :: Int -> MU.Value -> MU.Value
+replicateSingleArr n v@(MU.Array a) = if V.length a == 1 then MU.Array $ V.replicate n (a V.! 0) else v
+replicateSingleArr _ v = v
 
 parseTextValue :: (Text, Text) -> Either String (Text, MU.Value)
 parseTextValue (k,vt) = do
