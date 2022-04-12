@@ -39,15 +39,6 @@ jobs:
         ghc --version
         cabal --version
     # Project Setup
-    - name: Create cabal.project.local
-      shell: bash
-      run: |
-        cat > cabal.project.local <<EOF
-        package *
-        EOF
-    - name: Print cabal.project.local
-      shell: bash
-      run: cat cabal.project.local
     - uses: actions/cache@v2
       name: Cache dist-newstyle
       with:
