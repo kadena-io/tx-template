@@ -1,0 +1,72 @@
+name: Build with MacOS
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        ghc: ["8.10.7", "9.0"]
+        cabal: ["3.6"]
+        os: ["macOS-latest"]
+        cabalcache: ["true"]
+
+    steps:
+    # Setup
+    - name: Checkout repository
+      uses: actions/checkout@v2
+    - name: Install GHC and Cabal
+      uses: haskell/actions/setup@v1.2.7
+      with:
+         ghc-version: ${{ matrix.ghc }}
+         cabal-version: ${{ matrix.cabal }}
+    - name: Confirm GHC and Cabal installation
+      run: |
+        ghc --version
+        cabal --version
+    - name: Create cabal.project.local
+      run: |
+        cat > cabal.project.local <<EOF
+        package *
+          documentation: False
+        EOF
+    - uses: pat-s/always-upload-cache@v2.1.5
+      name: Cache dist-newstyle
+      with:
+        path: |
+          ~/.cabal/packages
+          ~/.cabal/store
+          dist-newstyle
+        key: ${{ matrix.os }}-${{ matrix.ghc }}-7-cabal
+
+    # Build
+    - name: Update package database
+      run: cabal update
+    - name: Display outdated packages
+      run: cabal outdated
+    - name: Configure build
+      run: |
+        cabal build all --dry-run
+        cabal freeze
+    - name: Sync from cabal cache
+      if: matrix.cabalcache == 'true'
+      uses: larskuhtz/cabal-cache-action@ecc751af6d31b3ed5a3b4aefdefd0ed6ef4cb414
+      with:
+        bucket: "kadena-cabal-cache"
+        region: "us-east-1"
+        folder: "${{ matrix.os }}"
+        aws_access_key_id: "${{ secrets.kadena_cabal_cache_aws_access_key_id }}"
+        aws_secret_access_key: "${{ secrets.kadena_cabal_cache_aws_secret_access_key }}"
+    - name: Install build dependencies
+      run: cabal build tx-template --only-dependencies
+    - name: Build chainweb library
+      run: cabal build lib:tx-template
+    - name: Build chainweb applications
+      run: cabal build exe:tx-template
+
